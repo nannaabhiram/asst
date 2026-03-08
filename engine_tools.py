@@ -5,6 +5,7 @@ from ddgs import DDGS
 import webbrowser
 import urllib.parse
 import shutil # Add this at the top
+import psutil
 
 def google_search(query):
     try:
@@ -135,3 +136,47 @@ def generate_code_file(filename, task_description):
         return f"Created {filename}.py in your projects folder and opened it for you."
     except Exception as e:
         return f"Error creating file: {e}"
+
+def get_quick_news():
+    """Fetches the top 3 headlines and cleans the text."""
+    try:
+        with DDGS() as ddgs:
+            # Search for news from the last 24 hours
+            results = [r['body'] for r in ddgs.text("india news facts last 24 hours", max_results=5)]
+            clean_headlines = []
+            for h in results:
+                clean = h.split('|')[0].split('-')[0].strip()
+                # Only keep factual sentences, filter out opinion or clickbait
+                if len(clean) > 15 and any(word in clean.lower() for word in ["announced", "reported", "released", "confirmed", "revealed", "declared", "said", "stated"]):
+                    clean_headlines.append(clean)
+            if clean_headlines:
+                return ". ".join(clean_headlines)
+            return "No major headlines right now."
+    except:
+        return "I couldn't reach the news server."
+
+
+def get_system_status():
+    """Checks CPU, RAM, and Battery levels."""
+    cpu = psutil.cpu_percent()
+    ram = psutil.virtual_memory().percent
+    battery = psutil.sensors_battery()
+    status = f"System usage is at {cpu}% CPU and {ram}% RAM."
+    if battery:
+        status += f" Battery is at {battery.percent}% and {'charging' if battery.power_plugged else 'discharging'}."
+    return status
+
+def kill_heavy_processes(threshold=20):
+    """Kills processes using more than 'threshold' percent RAM."""
+    import psutil
+    killed = []
+    for proc in psutil.process_iter(['pid', 'name', 'memory_percent']):
+        try:
+            if proc.info['memory_percent'] and proc.info['memory_percent'] > threshold:
+                psutil.Process(proc.info['pid']).kill()
+                killed.append(f"{proc.info['name']} (PID {proc.info['pid']})")
+        except Exception:
+            pass
+    if killed:
+        return f"Killed: {', '.join(killed)}"
+    return "No heavy processes found above threshold."
